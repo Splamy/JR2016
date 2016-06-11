@@ -38,6 +38,9 @@ public class NooBot extends JRobot2015_3 {
 
     private void myBot() {
         setBodyColor(Color.GRAY);
+
+        boolean dodging = false;
+
         if (getProjectileRadar() != null) {
             Vector projectileP = getProjectileRadar().pos;
             Vector projectileS = getProjectileRadar().speed;
@@ -60,42 +63,50 @@ public class NooBot extends JRobot2015_3 {
 
             double difference = Math.abs((t_x - t_y) * ownS.getLength());
 
-            addDebugArrow(projectileP, projectileP.add(projectileS));
-            addDebugArrow(ownP, ownP.add(ownS));
+            if (t_x + t_y >= -getJRobotLength() * 8 / ownS.getLength() && difference <= getJRobotLength() * 2) {
 
-            addDebugCrosshair(projectileP.add(projectileS.mult(t_x)));
-            addDebugCrosshair(projectileP.add(projectileS.mult(t_y)));
-            addDebugCrosshair(ownP.add(ownS.mult(t_x)));
-            addDebugCrosshair(ownP.add(ownS.mult(t_y)));
+                addDebugArrow(projectileP, projectileP.add(projectileS));
+                addDebugArrow(ownP, ownP.add(ownS));
 
-            if (t_x + t_y >= -getJRobotLength() * 2 / ownS.getLength() && difference <= getJRobotLength() * 2) {
+                addDebugCrosshair(projectileP.add(projectileS.mult(t_x)));
+                addDebugCrosshair(projectileP.add(projectileS.mult(t_y)));
+                addDebugCrosshair(ownP.add(ownS.mult(t_x)));
+                addDebugCrosshair(ownP.add(ownS.mult(t_y)));
+
                 double angle = projectileS.getAngle().sub(getPosition().sub(projectileP).getAngle()).normalize().angle;
                 if (angle > Math.PI) {
                     angle -= Math.PI * 2;
                 }
 
-                if (angle > 0) { //TODO: wenn zu schnell, dann ist es besser weiter zu fahren
+                if (angle > 0) {
                     if (angle < Math.PI / 2) {
+                        dodging = true;
                         setBodyColor(Color.BLUE);
                         setAutopilot(projectileS.getAngle().sub(new Angle(90, "d")), 1);
-                        setBoost();
-                        sonar = SonarStatus.Charge;
+                        if (difference <= getJRobotLength()) {
+                            setBoost();
+                            sonar = SonarStatus.Charge;
+                        }
                     }
                 } else {
                     if (angle > -Math.PI / 2) {
+                        dodging = true;
                         setBodyColor(Color.YELLOW);
                         setAutopilot(projectileS.getAngle().add(new Angle(90, "d")), 1);
-                        setBoost();
-                        sonar = SonarStatus.Charge;
+                        if (difference <= getJRobotLength()) {
+                            setBoost();
+                            sonar = SonarStatus.Charge;
+                        }
                     }
                 }
             }
-        } else if (sonarHist.size() > 0) {
+        }
+        if (!dodging && sonarHist.size() > 0) {
             double distanceToEnemy = sonarHist.getLast().location.sub(getPosition()).getLength();
             if (distanceToEnemy > getMaxArenaDiameter() * 3 / 4) {
-                setAutopilot(sonarHist.getLast().location.sub(getPosition()).getAngle(), 0.5);
-            } else if (distanceToEnemy > getMaxArenaDiameter() / 2) {
                 setAutopilot(sonarHist.getLast().location.sub(getPosition()).getAngle(), 0.25);
+            } else if (distanceToEnemy > getMaxArenaDiameter() / 2) {
+                setAutopilot(sonarHist.getLast().location.sub(getPosition()).getAngle(), 0.1);
             } else {
                 setAutopilot(getPosition().sub(sonarHist.getLast().location).getAngle(), 0.5);
             }
