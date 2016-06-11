@@ -13,9 +13,9 @@ import java.util.LinkedList;
  */
 public class NooBot extends JRobot2015_3 {
     private static final long serialVersionUID = 142001L;
-    private static final double[] traceDown = new double[]{0.2, 0.2, 0.2};
+    private static final double[] traceDown = new double[]{0.1, 0.1};
     private static final double traceEnergy = SumArr(traceDown);
-    private final int traceSleepMax = 5;
+    private final int traceSleepMax = 10;
     private LinkedList<SonarTrace> sonarHist = new LinkedList<SonarTrace>();
     private SonarStatus sonar = SonarStatus.Charge;
     private int traceStep = 0;
@@ -32,11 +32,12 @@ public class NooBot extends JRobot2015_3 {
     @Override
     protected void actions() {
         sonarBot();
-	    myBot();
+        myBot();
+        setNameColor(new Color(Color.HSBtoRGB((float) ((getTime() % 5) / 5), 1, 1)));
     }
 
-	private void myBot() {
-        setTurretColor(Color.GRAY);
+    private void myBot() {
+        setBodyColor(Color.GRAY);
         if (getProjectileRadar() != null) {
             Vector projectileP = getProjectileRadar().pos;
             Vector projectileS = getProjectileRadar().speed;
@@ -44,55 +45,57 @@ public class NooBot extends JRobot2015_3 {
             Vector ownP = getPosition();
             Vector ownS = getVelocity();
 
+            double p_x = projectileP.getX();
+            double p_y = projectileP.getY();
+            double p_dx = projectileS.getX();
+            double p_dy = projectileS.getY();
+
+            double o_x = ownP.getX();
+            double o_y = ownP.getY();
+            double o_dx = ownS.getX();
+            double o_dy = ownS.getY();
+
+            double t_x = (p_x - o_x) / (o_dx - p_dx);
+            double t_y = (p_y - o_y) / (o_dy - p_dy);
+
+            double difference = Math.abs((t_x - t_y) * ownS.getLength());
+
             addDebugArrow(projectileP, projectileP.add(projectileS));
             addDebugArrow(ownP, ownP.add(ownS));
 
-            {
-                double p_x = projectileP.getX();
-                double p_y = projectileP.getY();
-                double p_dx = projectileS.getX();
-                double p_dy = projectileS.getY();
+            addDebugCrosshair(projectileP.add(projectileS.mult(t_x)));
+            addDebugCrosshair(projectileP.add(projectileS.mult(t_y)));
+            addDebugCrosshair(ownP.add(ownS.mult(t_x)));
+            addDebugCrosshair(ownP.add(ownS.mult(t_y)));
 
-                double o_x = ownP.getX();
-                double o_y = ownP.getY();
-                double o_dx = ownS.getX();
-                double o_dy = ownS.getY();
-
-                double t_x = (p_x - o_x) / (o_dx - p_dx);
-                double t_y = (p_y - o_y) / (o_dy - p_dy);
-
-                setNameColor(Color.CYAN);
-                addDebugCrosshair(projectileP.add(projectileS.mult(t_x)));
-                addDebugCrosshair(projectileP.add(projectileS.mult(t_y)));
-                addDebugCrosshair(ownP.add(ownS.mult(t_x)));
-                addDebugCrosshair(ownP.add(ownS.mult(t_y)));
-            }
-
-
-            double angle = projectileS.getAngle().sub(getPosition().sub(projectileP).getAngle()).normalize().angle;
-            if (angle > Math.PI) {
-                angle -= Math.PI * 2;
-            }
-
-            if (angle > 0) {
-                if (angle < Math.PI / 2) {
-                    setTurretColor(Color.BLUE);
-                    setAutopilot(projectileS.getAngle().sub(new Angle(90, "d")), 1);
-                    setBoost();
+            if (t_x + t_y >= -getJRobotLength() * 2 / ownS.getLength() && difference <= getJRobotLength() * 2) {
+                double angle = projectileS.getAngle().sub(getPosition().sub(projectileP).getAngle()).normalize().angle;
+                if (angle > Math.PI) {
+                    angle -= Math.PI * 2;
                 }
-            } else {
-                if (angle > -Math.PI / 2) {
-                    setTurretColor(Color.YELLOW);
-                    setAutopilot(projectileS.getAngle().add(new Angle(90, "d")), 1);
-                    setBoost();
+
+                if (angle > 0) { //TODO: wenn zu schnell, dann ist es besser weiter zu fahren
+                    if (angle < Math.PI / 2) {
+                        setBodyColor(Color.BLUE);
+                        setAutopilot(projectileS.getAngle().sub(new Angle(90, "d")), 1);
+                        setBoost();
+                        sonar = SonarStatus.Charge;
+                    }
+                } else {
+                    if (angle > -Math.PI / 2) {
+                        setBodyColor(Color.YELLOW);
+                        setAutopilot(projectileS.getAngle().add(new Angle(90, "d")), 1);
+                        setBoost();
+                        sonar = SonarStatus.Charge;
+                    }
                 }
             }
         } else if (sonarHist.size() > 0) {
             double distanceToEnemy = sonarHist.getLast().location.sub(getPosition()).getLength();
             if (distanceToEnemy > getMaxArenaDiameter() * 3 / 4) {
-                setAutopilot(sonarHist.getLast().location.sub(getPosition()).getAngle(), 1);
-            } else if (distanceToEnemy > getMaxArenaDiameter() / 2) {
                 setAutopilot(sonarHist.getLast().location.sub(getPosition()).getAngle(), 0.5);
+            } else if (distanceToEnemy > getMaxArenaDiameter() / 2) {
+                setAutopilot(sonarHist.getLast().location.sub(getPosition()).getAngle(), 0.25);
             } else {
                 setAutopilot(getPosition().sub(sonarHist.getLast().location).getAngle(), 0.5);
             }
@@ -154,11 +157,11 @@ public class NooBot extends JRobot2015_3 {
     Vector dir = new Vector();
 
     private void attackBot() {
-        SonarTrace first = sonarHist.get(sonarHist.size() - 3);
+        //SonarTrace first = sonarHist.get(sonarHist.size() - 3);
         SonarTrace second = sonarHist.get(sonarHist.size() - 2);
         SonarTrace third = sonarHist.get(sonarHist.size() - 1);
 
-        Vector betw1_2 = second.location.sub(first.location);
+        //Vector betw1_2 = second.location.sub(first.location);
         Vector betw2_3 = third.location.sub(second.location);
 
         double delta = third.timestamp - second.timestamp;
