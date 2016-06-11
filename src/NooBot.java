@@ -13,9 +13,9 @@ import java.util.LinkedList;
  */
 public class NooBot extends JRobot2015_3 {
     private static final long serialVersionUID = 142001L;
-    private static final double[] traceDown = new double[]{0.2, 0.2, 0.2};
+    private static final double[] traceDown = new double[]{0.1, 0.1};
     private static final double traceEnergy = SumArr(traceDown);
-    private final int traceSleepMax = 5;
+    private final int traceSleepMax = 10;
     private LinkedList<SonarTrace> sonarHist = new LinkedList<SonarTrace>();
     private SonarStatus sonar = SonarStatus.Charge;
     private int traceStep = 0;
@@ -144,7 +144,7 @@ public class NooBot extends JRobot2015_3 {
 
         DrawHist();
 
-        Draw(getPosition(), dir, enemySpeeeed);
+        Draw(predictstart, predict);
 
         if (sonarHist.size() > 5)
             sonarHist.removeFirst();
@@ -153,24 +153,28 @@ public class NooBot extends JRobot2015_3 {
     double enemySpeeeed = 0;
     Vector dir = new Vector();
 
+    Vector predictstart = new Vector();
+    Vector predict = new Vector();
+
     private void attackBot() {
-        SonarTrace first = sonarHist.get(sonarHist.size() - 3);
+        //SonarTrace first = sonarHist.get(sonarHist.size() - 3);
         SonarTrace second = sonarHist.get(sonarHist.size() - 2);
         SonarTrace third = sonarHist.get(sonarHist.size() - 1);
 
-        Vector betw1_2 = second.location.sub(first.location);
+        //Vector betw1_2 = second.location.sub(first.location);
         Vector betw2_3 = third.location.sub(second.location);
 
         double delta = third.timestamp - second.timestamp;
         double enemySpeed = betw2_3.getLength() / delta;
-        Vector enemyVector = betw2_3.getNormal().mult(enemySpeed);
+        Vector enemySpeedVector = betw2_3.getNormal().mult(enemySpeed);
         enemySpeeeed = enemySpeed;
+        System.out.println(enemySpeeeed);
         dir = betw2_3;
 
         double Xp = third.location.getX(); // target pos ?
         double Yp = third.location.getY();
-        double MovXp = enemyVector.getX();
-        double MovYp = enemyVector.getY();
+        double MovXp = enemySpeedVector.getX();
+        double MovYp = enemySpeedVector.getY();
         double Xk = getPosition().getX(); // kugel
         double Yk = getPosition().getY();
         double Movk = getProjectileSpeed();
@@ -200,8 +204,11 @@ public class NooBot extends JRobot2015_3 {
             return;
 
         Vector targetAim = new Vector(Xp + MovXp * useval, Yp + MovYp * useval);
+        Vector hitPos = targetAim.sub(getPosition());
+        predictstart = getPosition();
+        predict = hitPos;
 
-        setLaunchProjectileCommand(targetAim.sub(getPosition()).getAngle());
+        setLaunchProjectileCommand(hitPos.getAngle());
     }
 
     private void Draw(Vector pos, Vector asDir) {
